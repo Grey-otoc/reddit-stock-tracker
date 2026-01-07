@@ -4,9 +4,9 @@ import requests
 import sqlite3
 
 """
-creates a scraper for each subreddit which fetches the 
-relevant data of each post and returns the title and body of the post and
-its comments
+creates a scraper for each subreddit which fetches the relevant data of each post
+and comment found, implements and maintains a sliding-window cache of recent posts and
+comments, and returns the post and comment content to be processed for tickers 
 """
 
 class Scraper:
@@ -44,7 +44,7 @@ class Scraper:
                     body = re.sub(r"\s+", " ", body)
                     yield f"COMMENT: {body.lower()}"
     
-    def fetch_posts(self) -> str:
+    def fetch_posts(self) -> list:
         params = {"limit": self.__post_count}
         url = f"https://www.reddit.com/r/{self.__subreddit}/new.json"
         
@@ -57,7 +57,17 @@ class Scraper:
 
         return posts
 
-    def validate_and_record_posts(self, post: dict):
+    def validate_and_record_posts(self, post: dict) -> bool:
+        """ 
+        same logic applies to validate_and_record_comments method below:
+        checks if post or comment is already in the db, if not, inserts it,
+        then checks if we have exceeded the desired count, and if so deletes
+        the oldest entry to maintain a sliding-window cache...every time we scrape
+        the subreddit, we only check the n (post_count) newest posts and m (comments_count)
+        newest comments on each post, so we only need to retain the n most recent
+        posts and m most recent comments per post in the db
+        """
+        
         post_id = post["id"]
         connection = sqlite3.connect(get_db_path())
         cursor = connection.cursor()
@@ -92,7 +102,7 @@ class Scraper:
         connection.close()    
         return is_new
     
-    def fetch_comments(self, post_id: str) -> str:
+    def fetch_comments(self, post_id: str) -> list:
         params = {"limit": self.__comments_count}
         # targets the newest comments on the post but reddit paginates comments 
         # and inserts "more" objects after a nondescript amounts of comments, this

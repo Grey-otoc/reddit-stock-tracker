@@ -27,9 +27,6 @@ class Scraper:
     def scrape_data(self) -> str:
         posts = self.fetch_posts()
         for post in posts:
-            # removes the need to access "data" with each post's attributes
-            post = post["data"]
-            
             # if post is new, we must record it and process its content
             if self.validate_and_record_posts(post):
                 title_and_body = post["title"] + " " + post["selftext"]
@@ -37,10 +34,15 @@ class Scraper:
                 # removes unicode whitespace chars and replaces them with single spaces
                 title_and_body = re.sub(r"\s+", " ", title_and_body)
                 title_and_body = title_and_body.upper()
-                yield title_and_body
+                yield f"POST: {title_and_body.lower()}"
             
             # next, if a comment is new, we must record it and process its content
-            # comments = self.fetch_comments(post["id"])
+            comments = self.fetch_comments(post["id"])
+            for comment in comments:
+                if self.validate_and_record_comments(comment, post["id"]):
+                    body = comment["body"].upper()
+                    body = re.sub(r"\s+", " ", body)
+                    yield f"COMMENT: {body.lower()}"
     
     def fetch_posts(self) -> str:
         params = {"limit": self.__post_count}
@@ -50,30 +52,35 @@ class Scraper:
             url, headers=self.HEADERS, params=params, timeout=self.TIMEOUT
         ).json()
         posts = response_json["data"]["children"]
-        
+        # removes the need to access "data" with each post
+        posts = [post["data"] for post in posts]
+
         return posts
 
     def validate_and_record_posts(self, post: dict):
+        post_id = post["id"]
         connection = sqlite3.connect(get_db_path())
         cursor = connection.cursor()
     
         cursor.execute(
             '''SELECT post_id FROM post_cache WHERE post_id = ?''',
-            (post["id"],)
+            (post_id,)
         )
         cursor_result = cursor.fetchone()
-        if cursor_result is None:
+        is_new = cursor_result is None
+        
+        if is_new:
             # insert the new post
             cursor.execute(
                 '''INSERT INTO post_cache (post_id, post_timestamp) VALUES (?, ?)''',
-                (post["id"], post["created_utc"])
+                (post_id, post["created_utc"])
             )
 
-            # check if we have more than n (desired post_count) entries
+            # check if we have more than n (desired post_count) entries in the db
             cursor.execute('''SELECT COUNT(*) FROM post_cache''')
-            current_count = cursor.fetchone()[0]
+            current_post_count = cursor.fetchone()[0]
 
-            if current_count > self.__post_count:
+            if current_post_count > self.__post_count:
                 # delete the post with the smallest (oldest) timestamp
                 cursor.execute('''
                     DELETE FROM post_cache 
@@ -83,13 +90,13 @@ class Scraper:
             connection.commit()
         
         connection.close()    
-        return cursor_result is None
+        return is_new
     
     def fetch_comments(self, post_id: str) -> str:
         params = {"limit": self.__comments_count}
         # targets the newest comments on the post but reddit paginates comments 
-        # and inserts "more" objects after nondescript amounts of comments, so
-        # we may not get the comments_count amount of comments, limit, depth,
+        # and inserts "more" objects after a nondescript amounts of comments, this
+        # means we may not get the comments_count amount of comments -- limit, depth,
         # and context parameters do not help with this
         url = f"https://www.reddit.com/r/stocks/comments/{post_id}/.json?sort=new&depth=1"
         
@@ -97,19 +104,53 @@ class Scraper:
             url, headers=self.HEADERS, params=params, timeout=self.TIMEOUT
         ).json()
         comments = response_json[1]["data"]["children"]
-        print(len(comments))
-        for comment in comments:
-            comment = comment["data"]
-            print(comment)
-            print("\n\n")
+
+        # filters out "more" objects to ensure we only access actual comments
+        actual_comments = [comm["data"] for comm in comments if comm["kind"] == "t1"]
+        
+        return actual_comments
+    
+    def validate_and_record_comments(self, comment: dict, post_id: str) -> bool:
+        comment_id = comment["id"]
+        connection = sqlite3.connect(get_db_path())
+        cursor = connection.cursor()
+        
+        cursor.execute(
+            '''SELECT 1 FROM comment_cache WHERE comment_id = ? AND post_id = ?''', 
+            (comment_id, post_id)
+        )
+        cursor_result = cursor.fetchone()
+        is_new = cursor_result is None
+
+        if is_new:
+            cursor.execute(
+                '''INSERT INTO comment_cache (comment_id, post_id, comment_timestamp)
+                VALUES (?, ?, ?)''', (comment_id, post_id, comment["created_utc"])
+            )
             
+            cursor.execute(
+                '''SELECT COUNT(*) FROM comment_cache WHERE post_id = ?''',
+                (post_id,)
+            )
+            current_comment_count = cursor.fetchone()[0]
+
+            if current_comment_count > self.__comments_count:
+                # delete the comment with the smallest (oldest) timestamp
+                cursor.execute(
+                    '''DELETE FROM comment_cache WHERE post_id = ? 
+                    AND comment_timestamp = (SELECT MIN(comment_timestamp) 
+                    FROM comment_cache WHERE post_id = ?)''',
+                    (post_id, post_id)
+                )
+
+            connection.commit()
+
+        connection.close()
+        return is_new
+
 if __name__ == "__main__":
     scraper = Scraper("stocks", 10, 6)
-    #scraper.scrape_data()
-    scraper.fetch_comments("1q5y4r5")
-
-# self.__posts[post["id"]] = {
-#     "title": post["title"], "body": post["selftext"],
-#     "permalink": post["permalink"], "post_time": post["created_utc"],
-#     "num_of_comments": post["num_comments"]
-# }
+    for post_or_comment in scraper.scrape_data():
+        print(post_or_comment)
+        print("\n\n")
+    # scraper.fetch_comments("1q5y4r5")

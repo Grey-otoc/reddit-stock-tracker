@@ -10,13 +10,11 @@ comments, and returns the post and comment content to be processed for tickers
 """
 
 class Scraper:
-    """ 
-    User-Agent identifies who is making the request to the server to help
-    avoid being blocked by Reddit
-    
-    TIMEOUT (in seconds) ensures script is not left hanging waiting for a response
-    """
+    #User-Agent identifies who is making the request to the server to help
+    #avoid being blocked by Reddit
     HEADERS = {"User-Agent": "reddit-stock-tracker/1.0 (by u/grey-otoc)"}
+    
+    #TIMEOUT (in seconds) ensures script is not left hanging waiting for a response
     TIMEOUT = 5
 
     def __init__(self, subreddit: str, post_count: int, comments_count: int):
@@ -34,28 +32,39 @@ class Scraper:
                 # removes unicode whitespace chars and replaces them with single spaces
                 title_and_body = re.sub(r"\s+", " ", title_and_body)
                 title_and_body = title_and_body.upper()
-                yield f"POST: {title_and_body.lower()}"
+                #yield title_and_body
+                yield "POST"
             
             # next, if a comment is new, we must record it and process its content
             comments = self.fetch_comments(post["id"])
             for comment in comments:
                 if self.validate_and_record_comments(comment, post["id"]):
-                    body = comment["body"].upper()
-                    body = re.sub(r"\s+", " ", body)
-                    yield f"COMMENT: {body.lower()}"
+                    comment_body = comment["body"].upper()
+                    comment_body = re.sub(r"\s+", " ", comment_body)
+                    #yield comment_body
+                    yield f"COMMENT {post["id"]}"
     
     def fetch_posts(self) -> list:
-        params = {"limit": self.__post_count}
-        url = f"https://www.reddit.com/r/{self.__subreddit}/new.json"
-        
-        response_json = requests.get(
-            url, headers=self.HEADERS, params=params, timeout=self.TIMEOUT
-        ).json()
-        posts = response_json["data"]["children"]
-        # removes the need to access "data" with each post
-        posts = [post["data"] for post in posts]
+        try:
+            params = {"limit": self.__post_count}
+            url = f"https://www.reddit.com/r/{self.__subreddit}/new.json"
+            
+            response = requests.get(
+                url, headers=self.HEADERS, params=params, timeout=self.TIMEOUT
+            )
+            # raises an HTTPError if the response was unsuccessful (400 or 500 codes)
+            response.raise_for_status()
+            response_json = response.json()
+            
+            posts = response_json["data"]["children"]
+            # removes the need to access "data" with each post
+            posts = [post["data"] for post in posts]
 
-        return posts
+            return posts
+        
+        except Exception as e:
+            print(f"FATAL ERROR: Failed to fetch posts from r/{self.__subreddit}: {e}")
+            raise
 
     def validate_and_record_posts(self, post: dict) -> bool:
         """ 
@@ -68,99 +77,145 @@ class Scraper:
         posts and m most recent comments per post in the db
         """
         
-        post_id = post["id"]
-        connection = sqlite3.connect(get_db_path())
-        cursor = connection.cursor()
-    
-        cursor.execute(
-            '''SELECT post_id FROM post_cache WHERE post_id = ?''',
-            (post_id,)
-        )
-        cursor_result = cursor.fetchone()
-        is_new = cursor_result is None
+        #ensures we don't get an UnboundLocalError in the except block
+        connection = None
         
-        if is_new:
-            # insert the new post
+        try:
+            post_id = post["id"]
+            connection = sqlite3.connect(get_db_path())
+            cursor = connection.cursor()
+        
             cursor.execute(
-                '''INSERT INTO post_cache (post_id, post_timestamp) VALUES (?, ?)''',
-                (post_id, post["created_utc"])
-            )
-
-            # check if we have more than n (desired post_count) entries in the db
-            cursor.execute('''SELECT COUNT(*) FROM post_cache''')
-            current_post_count = cursor.fetchone()[0]
-
-            if current_post_count > self.__post_count:
-                # delete the post with the smallest (oldest) timestamp
-                cursor.execute('''
-                    DELETE FROM post_cache 
-                    WHERE post_timestamp = (SELECT MIN(post_timestamp) FROM post_cache)
-                ''')
-            
-            connection.commit()
-        
-        connection.close()    
-        return is_new
-    
-    def fetch_comments(self, post_id: str) -> list:
-        params = {"limit": self.__comments_count}
-        # targets the newest comments on the post but reddit paginates comments 
-        # and inserts "more" objects after a nondescript amounts of comments, this
-        # means we may not get the comments_count amount of comments -- limit, depth,
-        # and context parameters do not help with this
-        url = f"https://www.reddit.com/r/stocks/comments/{post_id}/.json?sort=new&depth=1"
-        
-        response_json = requests.get(
-            url, headers=self.HEADERS, params=params, timeout=self.TIMEOUT
-        ).json()
-        comments = response_json[1]["data"]["children"]
-
-        # filters out "more" objects to ensure we only access actual comments
-        actual_comments = [comm["data"] for comm in comments if comm["kind"] == "t1"]
-        
-        return actual_comments
-    
-    def validate_and_record_comments(self, comment: dict, post_id: str) -> bool:
-        comment_id = comment["id"]
-        connection = sqlite3.connect(get_db_path())
-        cursor = connection.cursor()
-        
-        cursor.execute(
-            '''SELECT 1 FROM comment_cache WHERE comment_id = ? AND post_id = ?''', 
-            (comment_id, post_id)
-        )
-        cursor_result = cursor.fetchone()
-        is_new = cursor_result is None
-
-        if is_new:
-            cursor.execute(
-                '''INSERT INTO comment_cache (comment_id, post_id, comment_timestamp)
-                VALUES (?, ?, ?)''', (comment_id, post_id, comment["created_utc"])
-            )
-            
-            cursor.execute(
-                '''SELECT COUNT(*) FROM comment_cache WHERE post_id = ?''',
+                '''SELECT post_id FROM post_cache WHERE post_id = ?''',
                 (post_id,)
             )
-            current_comment_count = cursor.fetchone()[0]
-
-            if current_comment_count > self.__comments_count:
-                # delete the comment with the smallest (oldest) timestamp
+            cursor_result = cursor.fetchone()
+            is_new = cursor_result is None
+            
+            if is_new:
+                # insert the new post
                 cursor.execute(
-                    '''DELETE FROM comment_cache WHERE post_id = ? 
-                    AND comment_timestamp = (SELECT MIN(comment_timestamp) 
-                    FROM comment_cache WHERE post_id = ?)''',
-                    (post_id, post_id)
+                    '''INSERT INTO post_cache (post_id, post_timestamp) VALUES (?, ?)''',
+                    (post_id, post["created_utc"])
                 )
 
-            connection.commit()
+                # check if we have more than n (desired post_count) entries in the db
+                cursor.execute('''SELECT COUNT(*) FROM post_cache''')
+                current_post_count = cursor.fetchone()[0]
 
-        connection.close()
-        return is_new
+                if current_post_count > self.__post_count:
+                    # delete the post with the smallest (oldest) timestamp
+                    cursor.execute('''
+                        DELETE FROM post_cache 
+                        WHERE post_timestamp = (SELECT MIN(post_timestamp) FROM post_cache)
+                    ''')
+                
+                connection.commit()
+            
+            return is_new
+        
+        except Exception as e:
+            print(
+                f"FATAL ERROR: Failed to validate/record post {post_id} "
+                f"in r/{self.__subreddit}: {e}"
+            )
+            if connection:
+                connection.rollback()
+            raise
+        
+        finally:
+            if connection:
+                connection.close()
+    
+    def fetch_comments(self, post_id: str) -> list:
+        try:
+            params = {"limit": self.__comments_count}
+            # targets the newest comments on the post but reddit paginates comments 
+            # and inserts "more" objects after a nondescript amounts of comments, this
+            # means we may not get the comments_count amount of comments -- limit, depth,
+            # and context parameters do not help with this
+            url = f"https://www.reddit.com/r/{self.__subreddit}/comments/{post_id}/.json?sort=new&depth=1"
+            
+            response = requests.get(
+                url, headers=self.HEADERS, params=params, timeout=self.TIMEOUT
+            )
+            # raises an HTTPError if the response was unsuccessful (400 or 500 codes)
+            response.raise_for_status()
+            response_json = response.json()
+            
+            comments = response_json[1]["data"]["children"]
+
+            # filters out "more" objects to ensure we only access actual comments
+            actual_comments = [comm["data"] for comm in comments if comm["kind"] == "t1"]
+            
+            return actual_comments
+        
+        except Exception as e:
+            print(
+                f"FATAL ERROR: Failed to fetch comments for post {post_id} in "
+                "r/{self.__subreddit}: {e}"
+            )
+            raise
+        
+    def validate_and_record_comments(self, comment: dict, post_id: str) -> bool:
+        #ensures we don't get an UnboundLocalError in the except block 
+        connection = None
+        
+        try:
+            comment_id = comment["id"]
+            connection = sqlite3.connect(get_db_path())
+            cursor = connection.cursor()
+            
+            cursor.execute(
+                '''SELECT 1 FROM comment_cache WHERE comment_id = ? AND post_id = ?''', 
+                (comment_id, post_id)
+            )
+            cursor_result = cursor.fetchone()
+            is_new = cursor_result is None
+
+            if is_new:
+                cursor.execute(
+                    '''INSERT INTO comment_cache (comment_id, post_id, comment_timestamp)
+                    VALUES (?, ?, ?)''', (comment_id, post_id, comment["created_utc"])
+                )
+                
+                cursor.execute(
+                    '''SELECT COUNT(*) FROM comment_cache WHERE post_id = ?''',
+                    (post_id,)
+                )
+                current_comment_count = cursor.fetchone()[0]
+
+                if current_comment_count > self.__comments_count:
+                    # delete the comment with the smallest (oldest) timestamp
+                    cursor.execute(
+                        '''DELETE FROM comment_cache WHERE post_id = ? 
+                        AND comment_timestamp = (SELECT MIN(comment_timestamp) 
+                        FROM comment_cache WHERE post_id = ?)''',
+                        (post_id, post_id)
+                    )
+
+                connection.commit()
+
+            return is_new
+    
+        except Exception as e:
+            print(
+                f"CRITICAL ERROR: Failed to validate/record comment {comment_id} "
+                f"for post {post_id} in r/{self.__subreddit}: {e}"
+            )
+            if connection:
+                connection.rollback()
+            raise
+        
+        finally:
+            if connection:
+                connection.close()
 
 if __name__ == "__main__":
     scraper = Scraper("stocks", 10, 6)
+    scraper.scrape_data()
     for post_or_comment in scraper.scrape_data():
         print(post_or_comment)
-        print("\n\n")
-    # scraper.fetch_comments("1q5y4r5")
+    #     print(post_or_comment)
+    #     print("\n\n")
+    # # scraper.fetch_comments("1q5y4r5")

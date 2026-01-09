@@ -13,3 +13,7 @@ env/
 .DS_Store
 
 to_do.txt
+
+db_test.py
+
+reddit_ticker_data.db

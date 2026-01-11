@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+from typing import Optional
 from db_config import get_db_path
 import re
 import requests
@@ -8,6 +10,14 @@ creates a scraper for each subreddit which fetches the relevant data of each pos
 and comment found, implements and maintains a sliding-window cache of recent posts and
 comments, and returns the post and comment content to be processed for tickers 
 """
+
+@dataclass
+class ScrapedItem:
+    text: str
+    post_id: str
+    timestamp: int
+    subreddit: str
+    comment_id: Optional[str] = None
 
 class Scraper:
     #User-Agent identifies who is making the request to the server to help
@@ -22,7 +32,7 @@ class Scraper:
         self.__post_count = post_count
         self.__comments_count = comments_count
         
-    def scrape_data(self) -> str:
+    def scrape_data(self) -> dict:
         posts = self.fetch_posts()
         for post in posts:
             # if post is new, we must record it and process its content
@@ -31,7 +41,11 @@ class Scraper:
             
                 # removes unicode whitespace chars and replaces them with single spaces
                 title_and_body = re.sub(r"\s+", " ", title_and_body)
-                yield title_and_body
+                    
+                yield ScrapedItem(text=title_and_body, post_id=post["id"],
+                                  timestamp=post["created_utc"], 
+                                  subreddit=self.__subreddit
+                )
                 #yield "POST"
             
             # next, if a comment is new, we must record it and process its content
@@ -40,7 +54,12 @@ class Scraper:
                 if self.validate_and_record_comments(comment, post["id"]):
                     comment_body = comment["body"]
                     comment_body = re.sub(r"\s+", " ", comment_body)
-                    yield comment_body
+                    
+                    yield ScrapedItem(text=comment_body, post_id=post["id"],
+                                      comment_id=comment["id"],
+                                      timestamp=comment["created_utc"],
+                                      subreddit=self.__subreddit
+                    )
                     #yield f"COMMENT {post["id"]}"
     
     def fetch_posts(self) -> list:
@@ -214,7 +233,10 @@ if __name__ == "__main__":
     scraper = Scraper("stocks", 10, 6)
     data = scraper.scrape_data()
     for _ in range (2):
-        print(next(data))
+        dat = next(data)
+        print(dat.text)
+        print(dat.post_id, dat.comment_id, dat.timestamp, dat.subreddit)
+        print("\n\n")
     #     print(post_or_comment)
     #     print("\n\n")
     # # scraper.fetch_comments("1q5y4r5")

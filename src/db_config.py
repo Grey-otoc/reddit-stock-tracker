@@ -24,6 +24,8 @@ def initialise_db():
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS mentions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                post_id TEXT NOT NULL,
+                comment_id TEXT,
                 ticker_symbol TEXT NOT NULL,
                 subreddit TEXT NOT NULL,
                 mention_timestamp REAL NOT NULL

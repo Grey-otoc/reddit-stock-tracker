@@ -12,7 +12,7 @@ class TickerExtractor:
     formats like "BRK.A", "BRK/A", etc. I include words succeeded by an apostrophe
     to avoid missing tickers in possessive form, z.b. "I like AAPL's products."
     """
-    PATTERN = re.compile(r"(?<![a-zA-Z0-9'’])[a-zA-Z]{1,5}(?:[./-^][a-zA-Z]{1,2})?(?![a-zA-Z0-9])")
+    PATTERN = re.compile(r"(?<![a-zA-Z0-9'’&])[a-zA-Z]{1,5}(?:[./-^][a-zA-Z]{1,2})?(?![a-zA-Z0-9&])")
     
     def __init__(self, blacklisted_words: set[str], common_words: set[str], ticker_list: set[str]):
         self.__blacklisted_words = blacklisted_words
@@ -32,8 +32,9 @@ class TickerExtractor:
                 continue
             
             if upper_word in self.__ticker_list:
-                # only accept a common word if it's fully uppercase, otherwise
-                # just skip it
+                # only accept a common word ticker if it's fully uppercase, otherwise
+                # just skip it, logic here is that if user meant the ticker,
+                # they would likely write it in all caps to distinguish it
                 if upper_word in self.__common_words:
                     if word.isupper():
                         valid_tickers.add(upper_word)
@@ -41,3 +42,4 @@ class TickerExtractor:
                     valid_tickers.add(upper_word)
 
         return valid_tickers
+        

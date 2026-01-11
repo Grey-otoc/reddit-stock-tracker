@@ -21,12 +21,13 @@ def execute():
     #ticker_str = "I'm thinking of buying BRK.B and JW-A today. I know AAPL's price is high, but it is better than CAN. Most people think TSLA is a car company, but don't I've aren't AREN'Ttsla is really an AI play. Also, check out RAC/WS—I hope it doesn't GAP down like GME did."
     
     ticker_extractor = TickerExtractor(blacklisted_words, common_words, ticker_list)
-    # print(ticker_extractor.extract(ticker_str))
+    
     for subreddit in SUBREDDITS_TEST:
         scraper = Scraper(subreddit, POSTS_TO_COLLECT, COMMENTS_TO_COLLECT)
         sub_data = scraper.scrape_data()
-        for i in range(6):
-            print(ticker_extractor.extract(next(sub_data)))
+        for post_or_comment in sub_data:
+            print(ticker_extractor.extract(post_or_comment.text), post_or_comment.post_id)
+            print("\n")
     
 if __name__ == "__main__":
     boot_sequence()

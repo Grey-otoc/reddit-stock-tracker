@@ -31,6 +31,9 @@ def fetch_ticker_list():
         response_json = response.json()
 
         ticker_rows = response_json["data"]["rows"]
+        if not ticker_rows:
+            raise ValueError("Received an empty ticker list from Nasdaq API")
+
         # extract just the symbols
         tickers = [ticker["symbol"] for ticker in ticker_rows]
         load_ticker_list_into_csv(tickers)
@@ -62,8 +65,11 @@ def load_ticker_list_from_csv() -> set:
 
         with open(ticker_list_file, "r", newline='') as tickers_csv:
             reader = csv.reader(tickers_csv)
-            for _ in reader:
-                ticker = next(reader)[0]
+            # skip header row
+            next(reader)
+            
+            for row in reader:
+                ticker = row[0]
                 tickers.add(ticker)
                 
         return sorted(tickers)

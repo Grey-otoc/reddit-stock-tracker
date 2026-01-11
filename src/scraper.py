@@ -31,18 +31,17 @@ class Scraper:
             
                 # removes unicode whitespace chars and replaces them with single spaces
                 title_and_body = re.sub(r"\s+", " ", title_and_body)
-                title_and_body = title_and_body.upper()
-                #yield title_and_body
-                yield "POST"
+                yield title_and_body
+                #yield "POST"
             
             # next, if a comment is new, we must record it and process its content
             comments = self.fetch_comments(post["id"])
             for comment in comments:
                 if self.validate_and_record_comments(comment, post["id"]):
-                    comment_body = comment["body"].upper()
+                    comment_body = comment["body"]
                     comment_body = re.sub(r"\s+", " ", comment_body)
-                    #yield comment_body
-                    yield f"COMMENT {post["id"]}"
+                    yield comment_body
+                    #yield f"COMMENT {post["id"]}"
     
     def fetch_posts(self) -> list:
         try:
@@ -77,7 +76,7 @@ class Scraper:
         posts and m most recent comments per post in the db
         """
         
-        #ensures we don't get an UnboundLocalError in the except block
+        # ensures we don't get an UnboundLocalError in the except block
         connection = None
         
         try:
@@ -200,7 +199,7 @@ class Scraper:
     
         except Exception as e:
             print(
-                f"CRITICAL ERROR: Failed to validate/record comment {comment_id} "
+                f"FATAL ERROR: Failed to validate/record comment {comment_id} "
                 f"for post {post_id} in r/{self.__subreddit}: {e}"
             )
             if connection:
@@ -213,9 +212,9 @@ class Scraper:
 
 if __name__ == "__main__":
     scraper = Scraper("stocks", 10, 6)
-    scraper.scrape_data()
-    for post_or_comment in scraper.scrape_data():
-        print(post_or_comment)
+    data = scraper.scrape_data()
+    for _ in range (2):
+        print(next(data))
     #     print(post_or_comment)
     #     print("\n\n")
     # # scraper.fetch_comments("1q5y4r5")

@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from pydoc import text
 from typing import Optional
 from db_config import get_db_path
 import re
@@ -39,9 +40,11 @@ class Scraper:
             if self.validate_and_record_posts(post):
                 title_and_body = post["title"] + " " + post["selftext"]
             
+                # removes URLs to avoid false positives from ticker-like strings within URLs
+                title_and_body = re.sub(r"http\S+|www\S+|https\S+", "", title_and_body)
                 # removes unicode whitespace chars and replaces them with single spaces
                 title_and_body = re.sub(r"\s+", " ", title_and_body)
-                    
+
                 yield ScrapedItem(text=title_and_body, post_id=post["id"],
                                   timestamp=post["created_utc"], 
                                   subreddit=self.__subreddit
@@ -51,8 +54,13 @@ class Scraper:
             # next, if a comment is new, we must record it and process its content
             comments = self.fetch_comments(post["id"])
             for comment in comments:
+                if comment["author"] == "AutoModerator":
+                    continue
+                
                 if self.validate_and_record_comments(comment, post["id"]):
                     comment_body = comment["body"]
+                    # removes URLs to avoid false positives from ticker-like strings within URLs
+                    comment_body = re.sub(r"http\S+|www\S+|https\S+", "", comment_body)
                     comment_body = re.sub(r"\s+", " ", comment_body)
                     
                     yield ScrapedItem(text=comment_body, post_id=post["id"],

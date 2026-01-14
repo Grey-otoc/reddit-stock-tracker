@@ -1,3 +1,5 @@
+from db_config import get_db_path
+import sqlite3
 import re
 
 """
@@ -44,4 +46,44 @@ class TickerExtractor:
                     valid_tickers.add(upper_word)
 
         return valid_tickers
+    
+    def record_mentions(self, post_or_comment, tickers: set[str]):
+        # ensures we don't get an UnboundLocalError if connection in the except block
+        connection = None
+        
+        try:
+            connection = sqlite3.connect(get_db_path())
+            cursor = connection.cursor()
+            
+            post_id = post_or_comment.post_id
+            comment_id = post_or_comment.comment_id
+            timestamp = post_or_comment.timestamp
+            subreddit = post_or_comment.subreddit
+            
+            for ticker in tickers:
+                cursor.execute(
+                    '''SELECT id FROM mentions WHERE post_id = ? AND comment_id IS ? 
+                    AND ticker_symbol = ?''',
+                    (post_id, comment_id, ticker)
+                )
+                cursor_result = cursor.fetchone()
+                is_new = cursor_result is None
+                
+                if is_new:
+                    cursor.execute(
+                        '''INSERT INTO mentions (post_id, comment_id, ticker_symbol,
+                        subreddit, mention_timestamp) VALUES (?, ?, ?, ?, ?)''',
+                        (post_id, comment_id, ticker, subreddit, timestamp)
+                    )
+                else:
+                    print("NON-FATAL Error: Scraper returned a previously recorded ScrapedItem")
+                    
+            connection.commit()
+            
+        except Exception as e:
+            print(f"FATAL ERROR: Failed to record ticker mention: {e}")
+            
+        finally:
+            if connection:
+                connection.close()
         

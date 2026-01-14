@@ -1,8 +1,22 @@
 from pathlib import Path
 
 """
-accesses blacklist files and adds each word to a list which can then be used for
-ticker extraction filtering 
+accesses blacklist files and adds each word to a set which can then be used for
+ticker extraction filtering
+
+random_dc stands for "random do consider", these are acronyms or slang that may 
+also be tickers...the vast majority of the time, if the regular acronym or slang 
+is intended, it will be written in lowercase, for this reason, we consider them 
+only if they appear in uppercase form
+
+regular_words is a list sourced from "SCOWL (And Friends)" http://wordlist.aspell.net/
+(which is a db of varying sized English wordlists), our program uses the size 35 
+word list with some extra filtering, including no possessive forms, no words longer 
+than 5 characters, and no single letter words...similar to random_dc, these words
+are only considered as tickers if they appear in uppercase form
+
+blacklisted_words is composed of random_dnc or "random do consider" and the profanity
+list, if these words are matched, regardless of case, they are always filtered out
 """
 
 def load_blacklist_files() -> set:
@@ -18,9 +32,6 @@ def load_blacklist_files() -> set:
     
     blacklisted_words = set()
     regular_words_list = set()
-    # random_dc stands for "random do consider", these are acronyms or slang that
-    # may also be tickers...since they are usually in lowercase, we consider them if
-    # they appear in uppercase form
     random_words_dc = set()
     separate_files = ["random_dc.txt", "regular_words.txt"]
     

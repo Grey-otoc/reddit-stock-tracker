@@ -10,6 +10,7 @@ DCA
 DD
 DEI
 DOW
+EPS
 ETF
 EU
 F
@@ -18,6 +19,7 @@ G
 GOP
 HODL
 I
+ICE
 IPO
 IRA
 K
@@ -27,12 +29,14 @@ LOL
 NFT
 OP
 OS
+PE
 PM
 Q
 R
 ROI
 RSI
 SPAC
+TTM
 TV
 U
 UAE

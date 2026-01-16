@@ -48,6 +48,9 @@ class TickerExtractor:
         return valid_tickers
     
     def record_mentions(self, post_or_comment, tickers: set[str]):
+        if not tickers:
+            return
+        
         # ensures we don't get an UnboundLocalError if connection in the except block
         connection = None
         
@@ -76,7 +79,9 @@ class TickerExtractor:
                         (post_id, comment_id, ticker, subreddit, timestamp)
                     )
                 else:
-                    print("NON-FATAL Error: Scraper returned a previously recorded ScrapedItem")
+                    print("NON-FATAL Error: Scraper returned a previously recorded " 
+                          f"ScrapedItem from {subreddit}\npost id: {post_id} and "
+                          f"comment id: {comment_id}")
                     
             connection.commit()
             

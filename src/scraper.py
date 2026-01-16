@@ -121,20 +121,27 @@ class Scraper:
             if is_new:
                 # insert the new post
                 cursor.execute(
-                    '''INSERT INTO post_cache (post_id, post_timestamp) VALUES (?, ?)''',
-                    (post_id, post["created_utc"])
+                    '''INSERT INTO post_cache (post_id, post_timestamp, subreddit)
+                    VALUES (?, ?, ?)''',
+                    (post_id, post["created_utc"], self.__subreddit)
                 )
 
                 # check if we have more than n (desired post_count) entries in the db
-                cursor.execute('''SELECT COUNT(*) FROM post_cache''')
+                cursor.execute('''
+                    SELECT COUNT(*) FROM post_cache WHERE subreddit = ?''',
+                    (self.__subreddit, )
+                )
                 current_post_count = cursor.fetchone()[0]
 
                 if current_post_count > self.__post_count:
                     # delete the post with the smallest (oldest) timestamp
                     cursor.execute('''
                         DELETE FROM post_cache 
-                        WHERE post_timestamp = (SELECT MIN(post_timestamp) FROM post_cache)
-                    ''')
+                        WHERE subreddit = ? AND
+                        post_timestamp = (
+                            SELECT MIN(post_timestamp) FROM post_cache
+                        WHERE subreddit = ?)''', (self.__subreddit, self.__subreddit)
+                    )
                 
                 connection.commit()
             
@@ -179,7 +186,7 @@ class Scraper:
         except Exception as e:
             print(
                 f"FATAL ERROR: Failed to fetch comments for post {post_id} in "
-                "r/{self.__subreddit}: {e}"
+                f"r/{self.__subreddit}: {e}"
             )
             raise
         
@@ -201,8 +208,9 @@ class Scraper:
 
             if is_new:
                 cursor.execute(
-                    '''INSERT INTO comment_cache (comment_id, post_id, comment_timestamp)
-                    VALUES (?, ?, ?)''', (comment_id, post_id, comment["created_utc"])
+                    '''INSERT INTO comment_cache (comment_id, post_id, 
+                    comment_timestamp, subreddit) VALUES (?, ?, ?, ?)''',
+                    (comment_id, post_id, comment["created_utc"], self.__subreddit)
                 )
                 
                 cursor.execute(

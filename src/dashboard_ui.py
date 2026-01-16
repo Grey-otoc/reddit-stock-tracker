@@ -4,8 +4,12 @@ import sys
 from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QWidget, QVBoxLayout, QListView, QComboBox
 from PySide6.QtCore import Qt, QAbstractListModel
 
-class MainWindow(QMainWindow):
+'''
+creates a main window object with a simplistic UI, allowing for visualisation of
+ticker mention trends in a range of different time frames
+'''
 
+class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("RST by grey-otoc")
@@ -49,21 +53,24 @@ class MainWindow(QMainWindow):
         self.ticker_rank_list.setStyleSheet("""
             QListView {
                 background-color: #3B0D05;
-                border: none;
+                border: 3px solid #3B0D05;
                 border-radius: 10px;
-                font-family: "Alte Haas Grotesk";
                 font-weight: bold;
                 font-size: 24px;
                 outline: none;
+                selection-background-color: transparent;
             }
             QListView::item { padding: 15px; }
-            QListView::item::hover { background: #250d05; border-radius: 10px;}
+            QListView::item:hover {
+                background: #250d05; 
+                border-radius: 10px;
+            }
         """)
         
         self.ticker_rank_model = CenteredListModel()
         
         # set string list for ticker ranking list with default timeframe of last 24 hours
-        self.new_timeframe_selected("Last 24 Hours")
+        self.new_timeframe_selected("Last Hour")
         
         self.ticker_rank_list.setModel(self.ticker_rank_model)
         
@@ -71,6 +78,40 @@ class MainWindow(QMainWindow):
         
     def init_timeframe_menu(self):
         self.timeframe_filter_menu = QComboBox()
+        
+        # combobox-popup gets rid of the default box around the QAbstractItemView
+        # (aka the dropdown list)
+        self.timeframe_filter_menu.setStyleSheet("""
+            QComboBox {
+                background-color: #3B0D05;
+                color: white;
+                border: 3px solid #3B0D05;
+                border-radius: 10px;
+                padding: 8px 12px;
+                font-size: 16px;
+                font-weight: bold;
+                combobox-popup: 0;
+            }
+
+            QComboBox:hover {
+                background-color: #250d05;
+            }
+            
+            QComboBox QAbstractItemView {
+                background-color: #3B0D05;
+                color: white;
+                border-radius: 10px;
+                padding: 10px;
+                selection-background-color: transparent;
+            }
+            
+            QComboBox QAbstractItemView::item:hover {
+                background: #250d05;
+                border-radius: 10px;
+                padding: 5px;
+            }
+        """)
+
         
         options = ["Last Hour", "Last 24 Hours", "Last 7 Days", "Last Month", "Last Year", "All Time"]
         self.timeframe_filter_menu.addItems(options)

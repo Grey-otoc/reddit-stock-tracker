@@ -35,7 +35,8 @@ def initialise_db():
         cursor.execute(''' 
             CREATE TABLE IF NOT EXISTS post_cache (
                 post_id TEXT PRIMARY KEY,
-                post_timestamp REAL NOT NULL
+                post_timestamp REAL NOT NULL,
+                subreddit TEXT NOT NULL
             )
         ''')
         
@@ -44,6 +45,7 @@ def initialise_db():
                 comment_id TEXT NOT NULL,
                 post_id TEXT NOT NULL,
                 comment_timestamp REAL NOT NULL,
+                subreddit TEXT NOT NULL,
                 PRIMARY KEY (comment_id, post_id)
             )                   
         ''')

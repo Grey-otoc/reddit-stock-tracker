@@ -14,6 +14,7 @@ EPS
 ETF
 EU
 F
+FT
 FUD
 G
 GOP
@@ -35,6 +36,7 @@ Q
 R
 ROI
 RSI
+S
 SPAC
 TTM
 TV

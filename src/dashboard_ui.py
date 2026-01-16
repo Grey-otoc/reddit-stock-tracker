@@ -1,5 +1,7 @@
+from datetime import datetime, timedelta, timezone
+from db_queries import get_tickers_by_mention_count
 import sys
-from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QWidget, QVBoxLayout, QListView
+from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QWidget, QVBoxLayout, QListView, QComboBox
 from PySide6.QtCore import Qt, QAbstractListModel
 
 class MainWindow(QMainWindow):
@@ -14,6 +16,7 @@ class MainWindow(QMainWindow):
         self.layout = QVBoxLayout(self.container)
         
         self.init_title()
+        self.init_timeframe_menu()
         self.init_ticker_ranking_list()
     
     def setup_window_geometry(self):
@@ -33,7 +36,7 @@ class MainWindow(QMainWindow):
         self.title = QLabel("Reddit Stock Tracker")
         
         font = self.title.font()
-        font.setPointSize(25)
+        font.setPointSize(30)
         font.setBold(True)
         
         self.title.setFont(font)
@@ -47,18 +50,64 @@ class MainWindow(QMainWindow):
             QListView {
                 background-color: #3B0D05;
                 border: none;
+                border-radius: 10px;
+                font-family: "Alte Haas Grotesk";
+                font-weight: bold;
                 font-size: 24px;
                 outline: none;
             }
             QListView::item { padding: 15px; }
+            QListView::item::hover { background: #250d05; border-radius: 10px;}
         """)
         
         self.ticker_rank_model = CenteredListModel()
-        example = ["AAPL: 150", "TSLA: 120", "NVDA: 95", "BTC: 80", "ETH: 60", "AAPL: 150", "TSLA: 120", "NVDA: 95", "BTC: 80", "ETH: 60", "AAPL: 150", "TSLA: 120", "NVDA: 95", "BTC: 80", "ETH: 60"]
-        self.ticker_rank_model.setStringList(example)
+        
+        # set string list for ticker ranking list with default timeframe of last 24 hours
+        self.new_timeframe_selected("Last 24 Hours")
         
         self.ticker_rank_list.setModel(self.ticker_rank_model)
+        
         self.layout.addWidget(self.ticker_rank_list)
+        
+    def init_timeframe_menu(self):
+        self.timeframe_filter_menu = QComboBox()
+        
+        options = ["Last Hour", "Last 24 Hours", "Last 7 Days", "Last Month", "Last Year", "All Time"]
+        self.timeframe_filter_menu.addItems(options)
+        
+        self.timeframe_filter_menu.currentTextChanged.connect(self.new_timeframe_selected)
+        
+        self.layout.addWidget(self.timeframe_filter_menu)
+        
+    def new_timeframe_selected(self, new_selection: str):
+        if new_selection == "All Time":
+            mentions_since = 0.0
+        else:
+            time_map = {
+                "Last Hour": timedelta(hours=1),
+                "Last 24 Hours": timedelta(days=1),
+                "Last 7 Days": timedelta(weeks=1),
+                "Last Month": timedelta(days=31),
+                "Last Year": timedelta(days=365)
+            }
+            time_to_subtract = time_map.get(new_selection)
+            target_time = (datetime.now(timezone.utc) - time_to_subtract)
+            mentions_since = target_time.timestamp()
+            
+        ranked_tickers = get_tickers_by_mention_count(mentions_since)
+        ranked_tickers_str = []
+        
+        for ticker in ranked_tickers:
+            symbol = ticker[0]
+            mentions = ticker[1]
+            plural_check = "time" if mentions == 1 else "times"
+            
+            ranked_tickers_str.append(f"{symbol}: Mentioned {mentions} {plural_check}")
+        
+        if not ranked_tickers_str:
+            ranked_tickers_str = ["Nothing to display in this timeframe."]
+        
+        self.ticker_rank_model.setStringList(ranked_tickers_str)
         
 # creates a custom QStringListModel of sorts so that we can have some more control
 # over how items are displayed in our list

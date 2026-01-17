@@ -5,11 +5,24 @@ from db_config import get_db_path
 import re
 import requests
 import sqlite3
+from typing import Iterator
 
 """
 creates a scraper for each subreddit which fetches the relevant data of each post
 and comment found, implements and maintains a sliding-window cache of recent posts and
-comments, and returns the post and comment content to be processed for tickers 
+comments, and returns a ScrapedItem object for each new post and comment found
+
+the sliding window cache synchronizes our database "memory" with the specific depth
+of our Reddit scrape, since we only fetch the n newest posts and m newest comments,
+any item that falls outside that range becomes irrelevant for future checks...when
+a new item is found and recorded, we check if the cache for that specific subreddit
+or post has exceeded our limit, if it has, we delete the oldest entry...this "one-in,
+one-out" approach ensures that if a post/comment is pushed out of our cache, it 
+is because there are now enough newer posts/comments ahead of it that it will never appear
+in our scrape range again, keeping the database lean and preventing redundant processing
+
+the sliding window logic is employed in validate_and_record posts and comments
+functions
 """
 
 @dataclass
@@ -21,11 +34,11 @@ class ScrapedItem:
     comment_id: Optional[str] = None
 
 class Scraper:
-    #User-Agent identifies who is making the request to the server to help
-    #avoid being blocked by Reddit
+    # User-Agent identifies who is making the request to the server to help
+    # avoid being blocked by Reddit
     HEADERS = {"User-Agent": "reddit-stock-tracker/1.0 (by u/grey-otoc)"}
     
-    #TIMEOUT (in seconds) ensures script is not left hanging waiting for a response
+    # TIMEOUT (in seconds) ensures script is not left hanging waiting for a response
     TIMEOUT = 5
 
     def __init__(self, subreddit: str, post_count: int, comments_count: int):
@@ -33,7 +46,7 @@ class Scraper:
         self.__post_count = post_count
         self.__comments_count = comments_count
         
-    def scrape_data(self) -> dict:
+    def scrape_data(self) -> Iterator[ScrapedItem]:
         posts = self.fetch_posts()
         for post in posts:
             # if post is new, we must record it and process its content
@@ -49,11 +62,11 @@ class Scraper:
                                   timestamp=post["created_utc"], 
                                   subreddit=self.__subreddit
                 )
-                #yield "POST"
             
             # next, if a comment is new, we must record it and process its content
             comments = self.fetch_comments(post["id"])
             for comment in comments:
+                # prevents us from wasting processing on subreddit bot "comments"
                 if comment["author"] == "AutoModerator":
                     continue
                 
@@ -61,6 +74,7 @@ class Scraper:
                     comment_body = comment["body"]
                     # removes URLs to avoid false positives from ticker-like strings within URLs
                     comment_body = re.sub(r"http\S+|www\S+|https\S+", "", comment_body)
+                    # removes unicode whitespace chars and replaces them with single spaces
                     comment_body = re.sub(r"\s+", " ", comment_body)
                     
                     yield ScrapedItem(text=comment_body, post_id=post["id"],
@@ -68,7 +82,6 @@ class Scraper:
                                       timestamp=comment["created_utc"],
                                       subreddit=self.__subreddit
                     )
-                    #yield f"COMMENT {post["id"]}"
     
     def fetch_posts(self) -> list:
         try:
@@ -85,6 +98,9 @@ class Scraper:
             posts = response_json["data"]["children"]
             # removes the need to access "data" with each post
             posts = [post["data"] for post in posts]
+            
+            if posts:
+                print(f"Successfully fetched posts from {self.__subreddit}")
 
             return posts
         
@@ -92,17 +108,7 @@ class Scraper:
             print(f"FATAL ERROR: Failed to fetch posts from r/{self.__subreddit}: {e}")
             raise
 
-    def validate_and_record_posts(self, post: dict) -> bool:
-        """ 
-        same logic applies to validate_and_record_comments method below:
-        checks if post or comment is already in the db, if not, inserts it,
-        then checks if we have exceeded the desired count, and if so deletes
-        the oldest entry to maintain a sliding-window cache...every time we scrape
-        the subreddit, we only check the n (post_count) newest posts and m (comments_count)
-        newest comments on each post, so we only need to retain the n most recent
-        posts and m most recent comments per post in the db
-        """
-        
+    def validate_and_record_posts(self, post: dict) -> bool:        
         # ensures we don't get an UnboundLocalError in the except block
         connection = None
         
@@ -127,9 +133,10 @@ class Scraper:
                 )
 
                 # check if we have more than n (desired post_count) entries in the db
+                # for the relevant subreddit
                 cursor.execute('''
                     SELECT COUNT(*) FROM post_cache WHERE subreddit = ?''',
-                    (self.__subreddit, )
+                    (self.__subreddit,)
                 )
                 current_post_count = cursor.fetchone()[0]
 
@@ -140,7 +147,8 @@ class Scraper:
                         WHERE subreddit = ? AND
                         post_timestamp = (
                             SELECT MIN(post_timestamp) FROM post_cache
-                        WHERE subreddit = ?)''', (self.__subreddit, self.__subreddit)
+                            WHERE subreddit = ?)''', 
+                        (self.__subreddit, self.__subreddit)
                     )
                 
                 connection.commit()
@@ -165,7 +173,7 @@ class Scraper:
             params = {"limit": self.__comments_count}
             # targets the newest comments on the post but reddit paginates comments 
             # and inserts "more" objects after a nondescript amounts of comments, this
-            # means we may not get the comments_count amount of comments -- limit, depth,
+            # means we may not get the comments_count amount of comments...limit, depth,
             # and context parameters do not help with this
             url = f"https://www.reddit.com/r/{self.__subreddit}/comments/{post_id}/.json?sort=new&depth=1"
             
@@ -178,8 +186,12 @@ class Scraper:
             
             comments = response_json[1]["data"]["children"]
 
-            # filters out "more" objects to ensure we only access actual comments
+            # kind == t1 filters out "more" objects to ensure we only access 
+            # actual comments
             actual_comments = [comm["data"] for comm in comments if comm["kind"] == "t1"]
+            
+            if actual_comments:
+                print(f"Successfully fetched comments from post {post_id} in {self.__subreddit}")
             
             return actual_comments
         

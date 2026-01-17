@@ -3,8 +3,10 @@ import sqlite3
 import re
 
 """
-Takes title and body of post/comment and checks for tickers, then validates
-those tickers against api, returning valid tickers
+takes title and body of post/comment and checks for tickers, then validates
+those tickers against NASDAQ ticker list, returning valid tickers
+
+also handles the recording of valid ticker mentions into the db's mentions table
 """
 
 class TickerExtractor:
@@ -22,7 +24,7 @@ class TickerExtractor:
         self.__random_words_dc = random_words_dc
         self.__ticker_list = ticker_list
     
-    def extract(self, content: str) -> set: 
+    def extract(self, content: str) -> set[str]:
         match_count = 0
         raw_matches = self.PATTERN.findall(content)
         valid_tickers = set()
@@ -38,7 +40,8 @@ class TickerExtractor:
             if upper_word in self.__ticker_list:
                 # only accept a regular or random_dc word ticker if it's fully uppercase,
                 # otherwise just skip it, logic here is that if user meant the ticker,
-                # they would likely write it in all caps to distinguish it
+                # they would likely write it in all caps to distinguish it since the
+                # word is either a regular word or commonly lowercased abbreviation/slang
                 if upper_word in self.__regular_words or upper_word in self.__random_words_dc:
                     if word.isupper():
                         valid_tickers.add(upper_word)
@@ -48,9 +51,6 @@ class TickerExtractor:
         return valid_tickers
     
     def record_mentions(self, post_or_comment, tickers: set[str]):
-        if not tickers:
-            return
-        
         # ensures we don't get an UnboundLocalError if connection in the except block
         connection = None
         

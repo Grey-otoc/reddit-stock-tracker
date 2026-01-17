@@ -1,6 +1,10 @@
 from db_config import get_db_path
 import sqlite3
 
+''''
+contains all of the queries used by any part of the backend or UI of the project
+'''
+
 def get_tickers_by_mention_count(mentions_since: float) -> set[str]:
     connection = None
     

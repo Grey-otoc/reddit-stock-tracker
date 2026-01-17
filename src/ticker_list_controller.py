@@ -4,6 +4,7 @@ import requests
 
 CURRENT_DIR = Path(__file__).resolve()
 TICKERS_PATH = CURRENT_DIR.parent.parent / "tickers"
+TICKER_LIST_FILE = TICKERS_PATH / "ticker_list.csv"
 
 # Nasdaq blocks basic requests calls, so we must mimic a browser
 HEADERS = {
@@ -14,7 +15,7 @@ HEADERS = {
     "Referer": "https://www.nasdaq.com/"
 }
 
-#TIMEOUT (in seconds) ensures script is not left hanging waiting for a response
+# TIMEOUT (in seconds) ensures script is not left hanging waiting for a response
 TIMEOUT = 5
 
 # API endpoint for https://www.nasdaq.com/market-activity/stocks/screener page,
@@ -47,9 +48,8 @@ def fetch_ticker_list():
 def load_ticker_list_into_csv(tickers: list[str]):
     try:
         TICKERS_PATH.mkdir(parents=True, exist_ok=True)
-        ticker_list_file = TICKERS_PATH / "ticker_list.csv"
         
-        with open(ticker_list_file, 'w', newline='') as tickers_csv:
+        with open(TICKER_LIST_FILE, 'w', newline='') as tickers_csv:
             writer = csv.writer(tickers_csv)
             writer.writerow(["Ticker Symbol"])
             writer.writerows([[ticker] for ticker in tickers])
@@ -60,10 +60,9 @@ def load_ticker_list_into_csv(tickers: list[str]):
     
 def load_ticker_list_from_csv() -> set:
     try:
-        ticker_list_file = TICKERS_PATH / "ticker_list.csv"
         tickers = set()
 
-        with open(ticker_list_file, "r", newline='') as tickers_csv:
+        with open(TICKER_LIST_FILE, "r", newline='') as tickers_csv:
             reader = csv.reader(tickers_csv)
             # skip header row
             next(reader)
@@ -79,7 +78,7 @@ def load_ticker_list_from_csv() -> set:
         raise
 
 if __name__ == "__main__":
-    #fetch_ticker_list()
+    fetch_ticker_list()
     tickers = load_ticker_list_from_csv()
     for _ in range(20):
         print(tickers.pop())

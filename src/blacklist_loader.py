@@ -39,22 +39,20 @@ def load_blacklist_files() -> set:
         if file.is_file() and file.suffix == ".txt" and file.name not in separate_files:
             with open(file) as f:
                 words = f.read().strip().splitlines()
-                for word in words:
-                    blacklisted_words.add(word.upper())
+                blacklisted_words.update(word.upper() for word in words)
                     
     with open(regular_words_file) as f:
         regular_words = f.read().strip().splitlines()
-        for word in regular_words:
-            regular_words_list.add(word.upper())
+        regular_words_list.update(word.upper() for word in regular_words)
             
     with open(random_words_dc_file) as f:
         random_do_consider = f.read().strip().splitlines()
         for word in random_do_consider:
-            random_words_dc.add(word.upper())
+            random_words_dc.update(word.upper() for word in random_do_consider)
 
     return sorted(blacklisted_words), sorted(regular_words_list), sorted(random_words_dc)
 
 if __name__ == "__main__":
-    _, regular_words = load_blacklist_files()
-    for word in regular_words:
+    blacklisted_words, regular_words, random_words_dc = load_blacklist_files()
+    for word in random_words_dc:
         print(word)

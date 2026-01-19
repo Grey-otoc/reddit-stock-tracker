@@ -81,7 +81,7 @@ class TickerExtractor:
                 else:
                     print("NON-FATAL Error: Scraper returned a previously recorded " 
                           f"ScrapedItem from {subreddit}\npost id: {post_id} and "
-                          f"comment id: {comment_id}")
+                          f"comment id: {comment_id}\n")
                     
             connection.commit()
             

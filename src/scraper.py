@@ -99,6 +99,8 @@ class Scraper:
             # removes the need to access "data" with each post
             posts = [post["data"] for post in posts]
             
+            print(f"\n{"\n".join(post["id"] for post in posts)}")
+            
             if posts:
                 print(f"Successfully fetched posts from {self.__subreddit}")
 
@@ -139,6 +141,7 @@ class Scraper:
                     (self.__subreddit,)
                 )
                 current_post_count = cursor.fetchone()[0]
+                print(f"{self.__subreddit}: {current_post_count}")
 
                 if current_post_count > self.__post_count:
                     # delete the post with the smallest (oldest) timestamp
@@ -150,6 +153,7 @@ class Scraper:
                             WHERE subreddit = ?)''', 
                         (self.__subreddit, self.__subreddit)
                     )
+                    print(f"{self.__subreddit} post deleted")
                 
                 connection.commit()
             

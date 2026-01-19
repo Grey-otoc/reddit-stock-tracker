@@ -14,7 +14,8 @@ SUBREDDITS = [
     "stocks", "wallstreetbets", "stocks_picks", "ValueInvesting", 
     "stockmarket", "stockstobuytoday"
 ]
-SUBREDDITS_TEST = ["stocks"] 
+SCRAPER_EXTRACTOR_DELAY = 30    # minute(s)
+TICKER_LIST_UPDATER_DELAY = 1   # day(s)
 
 def boot_sequence():
     initialise_db()
@@ -22,7 +23,7 @@ def boot_sequence():
     BLACKLISTED_WORDS, REGULAR_WORDS, RANDOM_WORDS_DC = load_blacklist_files()
 
 def update_ticker_list():
-    print(f"[{datetime.now()}] Updating ticker list from source...")
+    print(f"[{datetime.now()}] Updating ticker list")
     fetch_ticker_list()
 
 def execute_scrape():
@@ -68,7 +69,7 @@ def start_scheduler():
     scheduler.add_job(
         update_ticker_list, 
         'interval', 
-        days=1, 
+        days=TICKER_LIST_UPDATER_DELAY, 
         next_run_time=datetime.now(),
         id='ticker_update',
         replace_existing=True
@@ -77,7 +78,7 @@ def start_scheduler():
     scheduler.add_job(
         execute_scrape, 
         'interval', 
-        minutes=30, 
+        minutes=SCRAPER_EXTRACTOR_DELAY, 
         next_run_time=datetime.now(),
         id='subreddit_scrape',
         replace_existing=True
@@ -86,12 +87,14 @@ def start_scheduler():
     try:
         scheduler.start()
     except (KeyboardInterrupt, SystemExit):
-        print("Shutting down...")
+        print("\nShutting down...")
         scheduler.shutdown()
     except Exception as e:
         print(f"Unexpected error: {e}. Shutting down...")
             
 if __name__ == "__main__":
     boot_sequence()
-    start_scheduler()
+    #start_scheduler()
+    update_ticker_list()
+    execute_scrape()
         

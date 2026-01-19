@@ -34,6 +34,24 @@ def clear_all_tables():
     connection.commit()
     connection.close()
 
+def get_mentions_by_ticker(ticker: str):
+    connection = sqlite3.connect(get_db_path())
+    cursor = connection.cursor()
+
+    cursor.execute('''
+        SELECT ticker_symbol, post_id, comment_id, mention_timestamp, subreddit 
+        FROM mentions
+        WHERE ticker_symbol = ?
+        ORDER BY mention_timestamp DESC
+    ''', (ticker, )
+    )
+    
+    rows = cursor.fetchall()
+    for row in rows:
+        print(f"${row[0]} mentioned in post {row[1]}, comment {row[2]} in {row[4]} at {row[3]}")
+    
+    connection.close()
+
 def get_mentions_by_subreddit(subreddit: str):
     connection = sqlite3.connect(get_db_path())
     cursor = connection.cursor()
@@ -68,7 +86,7 @@ def get_recent_mentions(limit: int = 10):
     
     rows = cursor.fetchall()
     for row in rows:
-        print(f"${row[0]} mentioned in post {row[1]}, comment {row[2]} at {row[3]}")
+        print(f"${row[0]} mentioned in post {row[1]}, comment {row[2]} in {row[4]} at {row[3]}")
     
     connection.close()
     
@@ -98,7 +116,11 @@ def get_tickers_by_mention_count(mentions_since: float) -> set[str]:
             connection.close()
 
 if __name__ == "__main__":
-    cmd = input("1: posts, 2: comments, 3: clear all tables, 4: get recent mentions, 5: get ranked tickers, 6: get mentions by sub ")
+    cmd = input(
+        "1: posts, 2: comments, 3: clear all tables, 4: get recent mentions,"
+        "5: get ranked tickers, 6: get mentions by sub, 7: get mentions by ticker:  "
+    )
+    
     if cmd == "1":
         grab_posts()
     elif cmd == "2":
@@ -114,3 +136,6 @@ if __name__ == "__main__":
     elif cmd == "6":
         subreddit = input("Subreddit: ")
         get_mentions_by_subreddit(subreddit)
+    elif cmd == "7":
+        ticker = input("Ticker: ")
+        get_mentions_by_ticker(ticker)

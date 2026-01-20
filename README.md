@@ -132,7 +132,7 @@ are kept in the scripts.
 
 ## Future Improvements
 
--  Adding soon
+-  Adding further information to ticker detail views where the user can see relevant data like the current stock price, percent change of n time, and a graph of this change over n time.
 
 ## Contributing
 
@@ -140,7 +140,7 @@ This is a project made for personal interest and learning, but feel free to fork
 
 ## License
 
-MIT License - feel free to use this project however you'd like!
+MIT License - Use, modify, and distribute this software however you'd like.
 
 ## Acknowledgments
 

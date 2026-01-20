@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QAbstractListModel
 import sys
+import webbrowser
 
 '''
 creates a main window object with a simplistic UI, allowing for visualisation of
@@ -199,6 +200,7 @@ class MainWindow(QMainWindow):
         
         list_of_mentions = QListView()
         list_of_mentions.setEditTriggers(QListView.NoEditTriggers)
+        list_of_mentions.clicked.connect(self.open_post_url)
         list_of_mentions.setStyleSheet("""
             QListView {
                 background-color: #3B0D05;
@@ -238,6 +240,16 @@ class MainWindow(QMainWindow):
         layout.addWidget(list_of_mentions)
         
         return detail_page
+    
+    def open_post_url(self, index):
+        text = index.data().split(" ")
+        post_id = text[1]
+        subreddit = text[6] if "comment" in text else text[3]
+        post_url = f"https://reddit.com/{subreddit}/comments/{post_id}"
+        
+        attempt = webbrowser.open_new_tab(post_url)
+        if attempt == False:
+            print("NON-FATAL Error: Attempt to open post for selected mention failed.")
         
 # creates a custom QStringListModel of sorts so that we can have some more control
 # over how items are displayed in our ticker ranking list
@@ -260,7 +272,7 @@ class CenteredListModel(QAbstractListModel):
         # provide the alignment
         if role == Qt.ItemDataRole.TextAlignmentRole:
             return Qt.AlignmentFlag.AlignCenter
-        
+
         return None
 
     def setStringList(self, data):

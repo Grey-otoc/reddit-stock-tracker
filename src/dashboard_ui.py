@@ -1,12 +1,15 @@
 from datetime import datetime, timedelta, timezone
-from db_queries import get_tickers_by_mention_count
-import sys
-from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QWidget, QVBoxLayout, QListView, QComboBox
+from db_queries import get_tickers_by_mention_count, get_mentions_by_ticker
+from PySide6.QtWidgets import (
+    QApplication, QMainWindow, QLabel, QWidget, QVBoxLayout, QListView, QComboBox, 
+    QStackedWidget, QPushButton
+)
 from PySide6.QtCore import Qt, QAbstractListModel
+import sys
 
 '''
 creates a main window object with a simplistic UI, allowing for visualisation of
-ticker mention trends in a range of different time frames
+ticker mention trends in a range of different timeframes
 '''
 
 class MainWindow(QMainWindow):
@@ -15,9 +18,12 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("RST by grey-otoc")
         self.setup_window_geometry()
         
-        self.container = QWidget()
-        self.setCentralWidget(self.container)
-        self.layout = QVBoxLayout(self.container)
+        self.stack = QStackedWidget()
+        self.setCentralWidget(self.stack)
+        
+        self.main_page_container = QWidget()
+        self.layout = QVBoxLayout(self.main_page_container)
+        self.stack.addWidget(self.main_page_container)
         
         self.init_title()
         self.init_timeframe_menu()
@@ -49,6 +55,7 @@ class MainWindow(QMainWindow):
     def init_ticker_ranking_list(self):
         self.ticker_rank_list = QListView()
         self.ticker_rank_list.setEditTriggers(QListView.NoEditTriggers)
+        self.ticker_rank_list.clicked.connect(self.open_ticker_detail)
         
         self.ticker_rank_list.setStyleSheet("""
             QListView {
@@ -143,15 +150,97 @@ class MainWindow(QMainWindow):
             mentions = ticker[1]
             plural_check = "time" if mentions == 1 else "times"
             
-            ranked_tickers_str.append(f"{symbol}: Mentioned {mentions} {plural_check}")
+            ranked_tickers_str.append(f"${symbol}: Mentioned {mentions} {plural_check}")
         
         if not ranked_tickers_str:
             ranked_tickers_str = ["Nothing to display in this timeframe."]
         
         self.ticker_rank_model.setStringList(ranked_tickers_str)
         
+    def open_ticker_detail(self, index):
+        text = index.data()
+        
+        if text == "Nothing to display in this timeframe.":
+            return
+        
+        detail_page = self.create_ticker_detail_page(text)
+        self.stack.addWidget(detail_page)
+        self.stack.setCurrentWidget(detail_page)
+    
+    def create_ticker_detail_page(self, text: str) -> QWidget:
+        detail_page = QWidget()
+        layout = QVBoxLayout(detail_page)
+        
+        text = text.split(":")
+        ticker_symbol = text[0]
+        title = QLabel(f"All Mentions For: {ticker_symbol}")
+        font = title.font()
+        font.setPointSize(30)
+        font.setBold(True)
+        title.setFont(font)
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        back_btn = QPushButton("Back")
+        back_btn.clicked.connect(lambda: self.stack.setCurrentIndex(0))
+        back_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3B0D05;
+                border: 3px solid #3B0D05;
+                border-radius: 10px;
+                font-weight: bold;
+                font-size: 16px;
+                padding: 8px 10px;
+            }
+            
+            QPushButton::hover {
+                background-color: #250d05;
+            }
+        """)
+        
+        list_of_mentions = QListView()
+        list_of_mentions.setEditTriggers(QListView.NoEditTriggers)
+        list_of_mentions.setStyleSheet("""
+            QListView {
+                background-color: #3B0D05;
+                border: 3px solid #3B0D05;
+                border-radius: 10px;
+                font-weight: bold;
+                font-size: 22px;
+                outline: none;
+                selection-background-color: transparent;
+            }
+            QListView::item { padding: 15px; }
+            QListView::item:hover {
+                background: #250d05; 
+                border-radius: 10px;
+            }
+        """)
+        model = CenteredListModel()
+        list_of_mentions.setModel(model)
+        mentions = get_mentions_by_ticker(ticker_symbol.strip("$"))
+        mentions_str = []
+        for mention in mentions:
+            time = datetime.fromtimestamp(mention[3], timezone.utc).replace(tzinfo=None)
+            if mention[2] == None:
+                mentions_str.append(
+                    f"Post {mention[1]} in r/{mention[4]} at "
+                   f"{time}"
+                )
+            else:
+                mentions_str.append(
+                    f"Post {mention[1]} and comment {mention[2]} in "
+                    f"r/{mention[4]} at {time}"
+                )
+        model.setStringList(mentions_str)
+        
+        layout.addWidget(title)
+        layout.addWidget(back_btn, alignment=Qt.AlignmentFlag.AlignLeft)
+        layout.addWidget(list_of_mentions)
+        
+        return detail_page
+        
 # creates a custom QStringListModel of sorts so that we can have some more control
-# over how items are displayed in our list
+# over how items are displayed in our ticker ranking list
 class CenteredListModel(QAbstractListModel):
     def __init__(self, data=None):
         super().__init__()
@@ -179,8 +268,8 @@ class CenteredListModel(QAbstractListModel):
         self._data = data
         self.endResetModel()
 
-app = QApplication(sys.argv)
-
-window = MainWindow()
-window.show()
-app.exec()
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    app.exec()

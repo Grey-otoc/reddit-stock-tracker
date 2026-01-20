@@ -23,9 +23,35 @@ def get_tickers_by_mention_count(mentions_since: float) -> set[str]:
         return ranked_tickers
         
     except Exception as e:
-        print("FATAL ERROR: Failed to retrieve tickers for dashboard: {e}")
+        print("FATAL ERROR: Failed to retrieve tickers by mention count for dashboard: {e}")
         raise
         
+    finally:
+        if connection:
+            connection.close()
+            
+def get_mentions_by_ticker(ticker: str):
+    connection = None
+    
+    try:
+        connection = sqlite3.connect(get_db_path())
+        cursor = connection.cursor()
+
+        cursor.execute('''
+            SELECT ticker_symbol, post_id, comment_id, mention_timestamp, subreddit 
+            FROM mentions
+            WHERE ticker_symbol = ?
+            ORDER BY mention_timestamp DESC
+        ''', (ticker, )
+        )
+        
+        mentions = cursor.fetchall()
+        return mentions
+    
+    except Exception as e:
+        print("FATAL ERROR: Failed to retrieve mentions by ticker for dashboard: {e}")
+        raise
+    
     finally:
         if connection:
             connection.close()

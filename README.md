@@ -1,7 +1,7 @@
 # Reddit-Stock-Tracker
 
 ## Description
-A local, end-to-end Python application that continuously collects and analyses Reddit post/comment data to identify frequently mentioned stock tickers. The system scrapes configurable subreddits, applies custom filtering logic to reduce false positives, stores structured results in a local SQL database, and provides both scheduled background processing and a PySide6 GUI for visualisation of which tickers had the most mentions in a user-selected timeframe.
+A local, end-to-end Python application that continuously collects and analyses Reddit post/comment data to identify frequently mentioned stock tickers. The system scrapes configurable subreddits, applies custom filtering logic to greatly reduce false positives, stores structured results in a local SQL database, enables scheduled background processing to keep scraping running continuously, and provides a PySide6 GUI for visualisation of which tickers had the most mentions in the user-selected timeframe.
 
 ## Features
 - Comprehensive scraping and extraction logic to greatly reduce false positive ticker mentions
@@ -98,11 +98,21 @@ scheduler.add_job(
 The scheduler will run indefinitely unless a fatal error occurs, the terminal window closes, the computer shuts down, or the user uses a keyboard interrupt (CTRL/CMD + C).
 
 ### 6. Display the GUI
-
 In a new terminal window (to keep the scheduler running if desired) within the src folder, run:
 ```bash
 python3 dashboard_ui.py
 ```
+
+### 7. UI Preview
+#### List of Tickers Sorted by Mention Count and Filtered by Timeframe
+<p align="left">
+    <img src="screenshots/main_list.png" width=400 />
+</p>
+
+#### List of Mentions for Chosen Ticker
+<p align="left">
+    <img src="screenshots/list_of_mentions.png" width=400 />
+</p>
 
 ## Best Practice Usage
 ### Avoiding Rate Limiting
@@ -149,7 +159,7 @@ MIT License - Use, modify, and distribute this software however you'd like.
 - Utilised [SCOWL and (Friends)'](http://wordlist.aspell.net/) wordlist creator to generate the base word list used for filtering common word tickers
 
 ## Links
-**Repository:** [Reddit-Stock-Tracker](https://github.com/grey-otoc/reddit-stock-tracker)
+**Repository:** [reddit-stock-tracker](https://github.com/grey-otoc/reddit-stock-tracker)
 
 ## Disclaimer
 This project is intended for educational and personal use only.  

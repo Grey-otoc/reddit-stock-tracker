@@ -140,6 +140,20 @@ HEADERS = {
 ```
 are kept in the scripts.
 
+## Post Reprocessing Issue (and Why It's Not an Issue)
+The execute_scrape function may occasionally return posts that were already handled in earlier scrape cycles, triggering the "INFO: Scraper returned a previously recorded ScrapedItem" message in the terminal. This is expected behavior caused by the interaction between a fixed-size post cache and Reddit posts being removed by moderators between runs.
+
+### An Example Flow of How This Can Happen
+- The cache initially contains posts 1, 2, 3, 4, and 5
+- Between scrapes, posts 2 and 4 are removed by Subreddit moderators
+- On the next scrape, Reddit returns posts 1, 3, 5, 6, and 7
+- Posts 6 and 7 are seen as "new" as they are no longer in the post cache
+- These posts are added to the cache and yielded for ticker extraction, causing the reprocessing and the INFO tagged terminal message
+
+### Why It's Not an Issue
+- The TickerExtractor always detects and blocks attempts to record previously recorded ticker mentions
+- For that reason, no duplicate data is inserted into the mentions table and no error occurs
+
 ## Future Improvements
 
 -  Adding further information to ticker detail views where the user can see relevant data like the current stock price, percent change of n time, and a graph of this change over n time.

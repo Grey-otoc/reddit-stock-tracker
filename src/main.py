@@ -23,7 +23,7 @@ def boot_sequence():
     BLACKLISTED_WORDS, REGULAR_WORDS, RANDOM_WORDS_DC = load_blacklist_files()
 
 def update_ticker_list():
-    print(f"[{datetime.now()}] Updating ticker list")
+    print(f"[{datetime.now()}] Updating ticker list...")
     fetch_ticker_list()
 
 def execute_scrape():
@@ -47,7 +47,7 @@ def execute_scrape():
                 ticker_count += len(tickers)
                 ticker_extractor.record_mentions(post_or_comment, tickers)
 
-    print(f"[{datetime.now()}] Recorded {ticker_count} mentions.")
+    print(f"[{datetime.now()}] Successfully recorded {ticker_count} mentions.")
     
 def crash_on_error(event):
     '''
@@ -66,11 +66,14 @@ def start_scheduler():
     
     scheduler.add_listener(crash_on_error, EVENT_JOB_ERROR)
     
+    # run immediately on start to ensure ticker list is available before scraper
+    # ever starts
+    update_ticker_list()
+    
     scheduler.add_job(
         update_ticker_list, 
         'interval', 
-        days=TICKER_LIST_UPDATER_DELAY, 
-        next_run_time=datetime.now(),
+        days=TICKER_LIST_UPDATER_DELAY,
         id='ticker_update',
         replace_existing=True
     )
@@ -86,15 +89,17 @@ def start_scheduler():
 
     try:
         scheduler.start()
+        
     except (KeyboardInterrupt, SystemExit):
         print("\nShutting down...")
         scheduler.shutdown()
+        
     except Exception as e:
         print(f"Unexpected error: {e}. Shutting down...")
             
 if __name__ == "__main__":
     boot_sequence()
-    #start_scheduler()
-    update_ticker_list()
-    execute_scrape()
+    start_scheduler()
+    # update_ticker_list()
+    # execute_scrape()
         

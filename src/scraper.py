@@ -49,6 +49,8 @@ class Scraper:
     def scrape_data(self) -> Iterator[ScrapedItem]:
         posts = self.fetch_posts()
         for post in posts:
+            print(post["id"])
+            
             # if post is new, we must record it and process its content
             if self.validate_and_record_posts(post):
                 title_and_body = post["title"] + " " + post["selftext"]
@@ -99,10 +101,8 @@ class Scraper:
             # removes the need to access "data" with each post
             posts = [post["data"] for post in posts]
             
-            print(f"\n{"\n".join(post["id"] for post in posts)}")
-            
             if posts:
-                print(f"Successfully fetched posts from {self.__subreddit}")
+                print(f"\nSuccessfully fetched posts from {self.__subreddit}:")
 
             return posts
         
@@ -141,7 +141,7 @@ class Scraper:
                     (self.__subreddit,)
                 )
                 current_post_count = cursor.fetchone()[0]
-                print(f"{self.__subreddit}: {current_post_count}")
+                print(f"Post cache count in {self.__subreddit} exceeded {self.__post_count} with {current_post_count} posts.", end=" ")
 
                 if current_post_count > self.__post_count:
                     # delete the post with the smallest (oldest) timestamp
@@ -153,7 +153,7 @@ class Scraper:
                             WHERE subreddit = ?)''', 
                         (self.__subreddit, self.__subreddit)
                     )
-                    print(f"{self.__subreddit} post deleted")
+                    print(f"Post deleted from post cache.")
                 
                 connection.commit()
             

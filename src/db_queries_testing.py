@@ -5,7 +5,10 @@ def grab_posts():
     connection = sqlite3.connect(get_db_path())
     cursor = connection.cursor()
     
-    cursor.execute('SELECT * FROM post_cache')
+    cursor.execute('''
+        SELECT * FROM post_cache
+        ORDER BY subreddit, post_timestamp DESC
+    ''')
     posts = cursor.fetchall()
     for post in posts:
         print(post)
@@ -16,7 +19,10 @@ def grab_comments():
     connection = sqlite3.connect(get_db_path())
     cursor = connection.cursor()
     
-    cursor.execute('SELECT * FROM comment_cache')
+    cursor.execute('''
+        SELECT * FROM comment_cache
+        ORDER BY subreddit, comment_timestamp DESC
+    ''')
     comments = cursor.fetchall()
     for comment in comments:
         print(comment)

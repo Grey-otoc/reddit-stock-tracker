@@ -37,7 +37,7 @@ Manual installation is not required.
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/YOUR_USERNAME/reddit-stock-tracker.git
+git clone https://github.com/grey-otoc/reddit-stock-tracker.git
 cd YOUR_FILE_PATH/reddit-stock-tracker
 ```
 
@@ -155,19 +155,15 @@ The execute_scrape function may occasionally return posts that were already hand
 - For that reason, no duplicate data is inserted into the mentions table and no error occurs
 
 ## Future Improvements
-
 -  Adding further information to ticker detail views where the user can see relevant data like the current stock price, percent change of n time, and a graph of this change over n time.
 
 ## Contributing
-
 This is a project made for personal interest and learning, but feel free to fork and experiment! Pull requests are welcome.
 
 ## License
-
 MIT License - Use, modify, and distribute this software however you'd like.
 
 ## Acknowledgments
-
 - Utilises publicly available data from: https://www.reddit.com/
 - Utilises publicly available data from: https://www.nasdaq.com/market-activity/stocks/screener
 - Utilised [SCOWL and (Friends)'](http://wordlist.aspell.net/) wordlist creator to generate the base word list used for filtering common word tickers
